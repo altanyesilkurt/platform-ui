@@ -8,6 +8,7 @@ interface ChatInputProps {
     chatId: string | null;
     onMessageSent?: (message: ApiMessage) => void;
     onStreamingResponse?: (content: string, done: boolean, messageId?: string) => void;
+    onTitleGenerated?: (newTitle: string) => void;
     onError?: (error: string) => void;
     useStreaming?: boolean;
     disabled?: boolean;
@@ -17,6 +18,7 @@ export const ChatInput = ({
                               chatId,
                               onMessageSent,
                               onStreamingResponse,
+                              onTitleGenerated,
                               onError,
                               useStreaming = true,
                               disabled
@@ -39,6 +41,7 @@ export const ChatInput = ({
         }
 
         const data = await response.json();
+
         onMessageSent?.({
             id: data.id,
             chat_id: chatId!,
@@ -46,10 +49,14 @@ export const ChatInput = ({
             content: data.content,
             created_at: new Date().toISOString(),
         });
+
+        // Handle title update
+        if (data.new_title) {
+            onTitleGenerated?.(data.new_title);
+        }
     };
 
     const sendMessageStreaming = async (content: string) => {
-        // Cancel any existing request
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
@@ -85,14 +92,10 @@ export const ChatInput = ({
             while (true) {
                 const { done, value } = await reader.read();
 
-                if (done) {
-                    break;
-                }
+                if (done) break;
 
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
-
-                // Keep the last incomplete line in the buffer
                 buffer = lines.pop() || '';
 
                 for (const line of lines) {
@@ -115,6 +118,11 @@ export const ChatInput = ({
 
                             if (data.done) {
                                 onStreamingResponse?.(fullContent, true, data.id);
+
+                                // Handle title update
+                                if (data.new_title) {
+                                    onTitleGenerated?.(data.new_title);
+                                }
                                 return;
                             }
                         } catch (e) {
@@ -128,7 +136,6 @@ export const ChatInput = ({
                 }
             }
 
-            // If we exit the loop without receiving done, still complete
             if (fullContent && !signal.aborted) {
                 onStreamingResponse?.(fullContent, true);
             }
@@ -138,7 +145,6 @@ export const ChatInput = ({
     };
 
     const handleSubmit = async () => {
-        // Prevent double submission
         if (isSubmittingRef.current) return;
         if (!message.trim() || !chatId || disabled || isLoading) return;
 
@@ -151,7 +157,6 @@ export const ChatInput = ({
             textareaRef.current.style.height = 'auto';
         }
 
-        // Notify parent about the user message
         onMessageSent?.({
             id: crypto.randomUUID(),
             chat_id: chatId,
@@ -194,7 +199,6 @@ export const ChatInput = ({
         }
     }, [message]);
 
-    // Cleanup on unmount only
     useEffect(() => {
         return () => {
             if (abortControllerRef.current) {

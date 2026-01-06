@@ -12,13 +12,17 @@ interface ChatAreaProps {
     chatTitle: string;
     messages: ApiMessage[];
     onMessagesChange: (messages: ApiMessage[]) => void;
+    onTitleChange?: (newTitle: string) => void;
+    onStartGeneratingTitle?: () => void;
 }
 
 export const ChatArea = ({
                              chatId,
                              chatTitle,
-                             messages = [], // Default to empty array
+                             messages = [],
                              onMessagesChange,
+                             onTitleChange,
+                             onStartGeneratingTitle,
                          }: ChatAreaProps) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -26,20 +30,31 @@ export const ChatArea = ({
     const [isStreaming, setIsStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Ensure messages is always an array
+    const messagesRef = useRef<ApiMessage[]>(messages);
+
+    useEffect(() => {
+        messagesRef.current = messages;
+    }, [messages]);
+
     const safeMessages = messages ?? [];
 
-    // Auto-scroll to bottom when new messages arrive or streaming updates
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [safeMessages, streamingContent, isStreaming]);
 
     const handleMessageSent = (message: ApiMessage) => {
         if (message.role === 'user') {
-            onMessagesChange([...safeMessages, message]);
+            const newMessages = [...messagesRef.current, message];
+            messagesRef.current = newMessages;
+            onMessagesChange(newMessages);
             setStreamingContent('');
             setIsStreaming(true);
             setError(null);
+
+            // If this is the first message, notify parent that title will be generated
+            if (messagesRef.current.length === 1) {
+                onStartGeneratingTitle?.();
+            }
         }
     };
 
@@ -52,12 +67,18 @@ export const ChatArea = ({
                 content,
                 created_at: new Date().toISOString(),
             };
-            onMessagesChange([...safeMessages, assistantMessage]);
+            const newMessages = [...messagesRef.current, assistantMessage];
+            messagesRef.current = newMessages;
+            onMessagesChange(newMessages);
             setStreamingContent('');
             setIsStreaming(false);
         } else {
             setStreamingContent(content);
         }
+    };
+
+    const handleTitleGenerated = (newTitle: string) => {
+        onTitleChange?.(newTitle);
     };
 
     const handleError = (errorMessage: string) => {
@@ -85,12 +106,11 @@ export const ChatArea = ({
                 <EmptyState />
             ) : (
                 <ScrollArea className="flex-1" ref={scrollRef}>
-                    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+                    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
                         {safeMessages.map((message) => (
                             <ChatMessage key={message.id} message={message} />
                         ))}
 
-                        {/* Streaming message */}
                         {isStreaming && streamingContent && (
                             <ChatMessage
                                 message={{
@@ -103,7 +123,6 @@ export const ChatArea = ({
                             />
                         )}
 
-                        {/* Typing indicator when waiting for first token */}
                         {isStreaming && !streamingContent && <TypingIndicator />}
 
                         <div ref={messagesEndRef} />
@@ -123,6 +142,7 @@ export const ChatArea = ({
                 chatId={chatId}
                 onMessageSent={handleMessageSent}
                 onStreamingResponse={handleStreamingResponse}
+                onTitleGenerated={handleTitleGenerated}
                 onError={handleError}
                 useStreaming={true}
                 disabled={isStreaming}

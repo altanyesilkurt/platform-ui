@@ -3,6 +3,7 @@ import { User, Bot } from 'lucide-react';
 
 interface Message {
     id: string;
+    chat_id: string;
     role: 'user' | 'assistant';
     content: string;
     created_at?: string;

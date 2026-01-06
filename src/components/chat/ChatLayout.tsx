@@ -14,14 +14,13 @@ export const ChatLayout = ({ user }: ChatLayoutProps) => {
     const [messages, setMessages] = useState<ApiMessage[]>([]);
     const [isLoadingChats, setIsLoadingChats] = useState(true);
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+    const [generatingTitleForChatId, setGeneratingTitleForChatId] = useState<string | null>(null);
 
-    // Load all chats on mount
     useEffect(() => {
         const loadChats = async () => {
             try {
                 const data = await chatApi.getChats();
                 setChats(data);
-                // Auto-select first chat if available
                 if (data.length > 0) {
                     setActiveChat(data[0]);
                 }
@@ -34,7 +33,6 @@ export const ChatLayout = ({ user }: ChatLayoutProps) => {
         loadChats();
     }, []);
 
-    // Load messages when active chat changes
     useEffect(() => {
         if (activeChat) {
             const loadMessages = async () => {
@@ -98,7 +96,23 @@ export const ChatLayout = ({ user }: ChatLayoutProps) => {
         }
     };
 
-    // Convert ApiChat to the format ChatSidebar expects
+    // Called when first message is sent - start generating title
+    const handleStartGeneratingTitle = () => {
+        if (activeChat) {
+            setGeneratingTitleForChatId(activeChat.id);
+        }
+    };
+
+    // Handle auto-generated title from AI
+    const handleTitleChange = (newTitle: string) => {
+        if (activeChat) {
+            const updatedChat = { ...activeChat, title: newTitle };
+            setActiveChat(updatedChat);
+            setChats(prev => prev.map(c => c.id === activeChat.id ? updatedChat : c));
+            setGeneratingTitleForChatId(null);
+        }
+    };
+
     const sidebarChats = chats.map(chat => ({
         id: chat.id,
         title: chat.title,
@@ -117,6 +131,7 @@ export const ChatLayout = ({ user }: ChatLayoutProps) => {
                 onDeleteChat={handleDeleteChat}
                 onUpdateChatTitle={handleUpdateChatTitle}
                 onNewChat={handleNewChat}
+                generatingTitleForChatId={generatingTitleForChatId}
             />
 
             {activeChat ? (
@@ -125,6 +140,8 @@ export const ChatLayout = ({ user }: ChatLayoutProps) => {
                     chatTitle={activeChat.title}
                     messages={messages}
                     onMessagesChange={setMessages}
+                    onTitleChange={handleTitleChange}
+                    onStartGeneratingTitle={handleStartGeneratingTitle}
                 />
             ) : (
                 <div className="flex-1 flex items-center justify-center bg-background">
