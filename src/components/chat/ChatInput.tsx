@@ -2,12 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { API_BASE_URL, ApiMessage } from '@/lib/api';
+import { API_BASE_URL, ApiMessage, PRMetadata } from '@/lib/api';
 
 interface ChatInputProps {
     chatId: string | null;
     onMessageSent?: (message: ApiMessage) => void;
-    onStreamingResponse?: (content: string, done: boolean, messageId?: string) => void;
+    onStreamingResponse?: (content: string, done: boolean, messageId?: string, prMetadata?: PRMetadata) => void;
+    onPRMetadataReceived?: (metadata: PRMetadata) => void;
     onTitleGenerated?: (newTitle: string) => void;
     onError?: (error: string) => void;
     useStreaming?: boolean;
@@ -18,6 +19,7 @@ export const ChatInput = ({
                               chatId,
                               onMessageSent,
                               onStreamingResponse,
+                              onPRMetadataReceived,
                               onTitleGenerated,
                               onError,
                               useStreaming = true,
@@ -48,9 +50,9 @@ export const ChatInput = ({
             role: 'assistant',
             content: data.content,
             created_at: new Date().toISOString(),
+            pr_metadata: data.pr_metadata,
         });
 
-        // Handle title update
         if (data.new_title) {
             onTitleGenerated?.(data.new_title);
         }
@@ -87,6 +89,7 @@ export const ChatInput = ({
 
         let fullContent = '';
         let buffer = '';
+        let prMetadata: PRMetadata | undefined = undefined;
 
         try {
             while (true) {
@@ -111,15 +114,21 @@ export const ChatInput = ({
                                 throw new Error(data.error);
                             }
 
+                            // Capture PR metadata when received
+                            if (data.pr_metadata) {
+                                console.log('PR Metadata received:', data.pr_metadata);
+                                prMetadata = data.pr_metadata;
+                                onPRMetadataReceived?.(prMetadata);
+                            }
+
                             if (data.content) {
                                 fullContent += data.content;
-                                onStreamingResponse?.(fullContent, false);
+                                onStreamingResponse?.(fullContent, false, undefined, prMetadata);
                             }
 
                             if (data.done) {
-                                onStreamingResponse?.(fullContent, true, data.id);
+                                onStreamingResponse?.(fullContent, true, data.id, prMetadata);
 
-                                // Handle title update
                                 if (data.new_title) {
                                     onTitleGenerated?.(data.new_title);
                                 }
@@ -137,7 +146,7 @@ export const ChatInput = ({
             }
 
             if (fullContent && !signal.aborted) {
-                onStreamingResponse?.(fullContent, true);
+                onStreamingResponse?.(fullContent, true, undefined, prMetadata);
             }
         } finally {
             reader.releaseLock();

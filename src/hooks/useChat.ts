@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Chat, Message } from '@/types/chat';
-import { chatApi } from '@/lib/api';
+import { chatApi, PRMetadata, StreamEvent, detectPRUrl } from '@/lib/api';
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
@@ -18,10 +18,13 @@ export const useChat = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isConnected, setIsConnected] = useState(false);
+    const [streamingContent, setStreamingContent] = useState<string>('');
+    const [currentPRMetadata, setCurrentPRMetadata] = useState<PRMetadata | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const activeChat = chats.find(chat => chat.id === activeChatId) || chats[0];
 
-    // Try to load chats from API on mount
+    // Load chats from API on mount
     useEffect(() => {
         const loadChats = async () => {
             try {
@@ -36,8 +39,8 @@ export const useChat = () => {
                     }));
                     setChats(loadedChats);
                     setActiveChatId(loadedChats[0].id);
-                    setIsConnected(true);
                 }
+                setIsConnected(true);
             } catch (err) {
                 console.log('FastAPI not connected, using local state');
                 setIsConnected(false);
@@ -58,6 +61,7 @@ export const useChat = () => {
                     role: m.role,
                     content: m.content,
                     timestamp: new Date(m.created_at),
+                    prMetadata: m.pr_metadata,
                 }));
 
                 setChats(prev => prev.map(chat =>
@@ -69,6 +73,13 @@ export const useChat = () => {
         };
         loadMessages();
     }, [activeChatId, isConnected]);
+
+    // Cleanup streaming on unmount
+    useEffect(() => {
+        return () => {
+            abortControllerRef.current?.abort();
+        };
+    }, []);
 
     const createChat = useCallback(async () => {
         try {
@@ -136,11 +147,20 @@ export const useChat = () => {
         );
     }, [isConnected]);
 
-    const sendMessage = useCallback(async (content: string) => {
+    const stopStreaming = useCallback(() => {
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = null;
+        setLoading(false);
+    }, []);
+
+    const sendMessage = useCallback(async (content: string, useStreaming = true) => {
         if (!content.trim() || loading) return;
 
         setError(null);
+        setStreamingContent('');
+        setCurrentPRMetadata(null);
 
+        const hasPRUrl = detectPRUrl(content);
         const userMessage: Message = {
             id: generateId(),
             role: 'user',
@@ -155,63 +175,142 @@ export const useChat = () => {
                     ? {
                         ...chat,
                         messages: [...chat.messages, userMessage],
-                        title: chat.messages.length === 0 ? content.trim().slice(0, 30) + (content.length > 30 ? '...' : '') : chat.title,
                         updatedAt: new Date(),
                     }
                     : chat
             )
         );
 
-        // Update title in API if first message
-        const currentChat = chats.find(c => c.id === activeChatId);
-        if (isConnected && currentChat && currentChat.messages.length === 0) {
-            const newTitle = content.trim().slice(0, 30) + (content.length > 30 ? '...' : '');
-            chatApi.updateChatTitle(activeChatId, newTitle).catch(() => {});
-        }
-
         setLoading(true);
 
         try {
-            let responseContent: string;
+            if (isConnected && useStreaming) {
+                // Use streaming for PR analysis (better UX for longer responses)
+                let fullContent = '';
+                let prMetadata: PRMetadata | null = null;
+                let messageId = generateId();
+                let newTitle: string | null = null;
 
-            if (isConnected) {
+                const handleEvent = (event: StreamEvent) => {
+                    if (event.pr_metadata) {
+                        prMetadata = event.pr_metadata;
+                        setCurrentPRMetadata(prMetadata);
+                    }
+
+                    if (event.content) {
+                        fullContent += event.content;
+                        setStreamingContent(fullContent);
+                    }
+
+                    if (event.done) {
+                        messageId = event.id || messageId;
+                        newTitle = event.new_title || null;
+
+                        const assistantMessage: Message = {
+                            id: messageId,
+                            role: 'assistant',
+                            content: fullContent,
+                            timestamp: new Date(),
+                            prMetadata: prMetadata || undefined,  // Save PR metadata to message
+                        };
+
+                        setChats(prev =>
+                            prev.map(chat =>
+                                chat.id === activeChatId
+                                    ? {
+                                        ...chat,
+                                        messages: [...chat.messages, assistantMessage],
+                                        title: newTitle || chat.title,
+                                        updatedAt: new Date(),
+                                    }
+                                    : chat
+                            )
+                        );
+
+                        setStreamingContent('');
+                        setCurrentPRMetadata(null);
+                        setLoading(false);
+                    }
+
+                    if (event.error) {
+                        setError(event.error);
+                        setStreamingContent('');
+                        setCurrentPRMetadata(null);
+                        setLoading(false);
+                    }
+                };
+
+                const handleError = (err: Error) => {
+                    setError(err.message);
+                    setLoading(false);
+                };
+
+                abortControllerRef.current = chatApi.sendMessageStream(
+                    activeChatId,
+                    content,
+                    handleEvent,
+                    handleError
+                );
+            } else if (isConnected) {
+                // Non-streaming fallback
                 const response = await chatApi.sendMessage(activeChatId, content);
-                responseContent = response.content;
+
+                const assistantMessage: Message = {
+                    id: response.id,
+                    role: 'assistant',
+                    content: response.content,
+                    timestamp: new Date(),
+                    prMetadata: response.pr_metadata,
+                };
+
+                setChats(prev =>
+                    prev.map(chat =>
+                        chat.id === activeChatId
+                            ? {
+                                ...chat,
+                                messages: [...chat.messages, assistantMessage],
+                                title: response.new_title || chat.title,
+                                updatedAt: new Date(),
+                            }
+                            : chat
+                    )
+                );
+                setLoading(false);
             } else {
-                // Simulated response when not connected
+                // Demo mode
                 await new Promise(resolve => setTimeout(resolve, 1500));
-                responseContent = `This is a demo response. Connect your FastAPI backend for real responses.\n\nYou asked: "${content}"`;
+                const demoContent = hasPRUrl
+                    ? `## PR Analysis Demo\n\nConnect your FastAPI backend to analyze PRs.\n\nDetected PR URL: ${hasPRUrl}`
+                    : `Demo response for: "${content}"`;
+
+                const assistantMessage: Message = {
+                    id: generateId(),
+                    role: 'assistant',
+                    content: demoContent,
+                    timestamp: new Date(),
+                };
+
+                setChats(prev =>
+                    prev.map(chat =>
+                        chat.id === activeChatId
+                            ? {
+                                ...chat,
+                                messages: [...chat.messages, assistantMessage],
+                                updatedAt: new Date(),
+                            }
+                            : chat
+                    )
+                );
+                setLoading(false);
             }
-
-            const assistantMessage: Message = {
-                id: generateId(),
-                role: 'assistant',
-                content: responseContent,
-                timestamp: new Date(),
-            };
-
-            setChats(prev =>
-                prev.map(chat =>
-                    chat.id === activeChatId
-                        ? {
-                            ...chat,
-                            messages: [...chat.messages, assistantMessage],
-                            updatedAt: new Date(),
-                        }
-                        : chat
-                )
-            );
         } catch (err) {
             setError('An error occurred. Please try again.');
             console.error('Chat error:', err);
-        } finally {
             setLoading(false);
         }
-    }, [activeChatId, loading, chats, isConnected]);
+    }, [activeChatId, loading, isConnected]);
 
-    const clearError = useCallback(() => {
-        setError(null);
-    }, []);
+    const clearError = useCallback(() => setError(null), []);
 
     return {
         chats,
@@ -220,11 +319,14 @@ export const useChat = () => {
         loading,
         error,
         isConnected,
+        streamingContent,
+        currentPRMetadata,
         setActiveChatId,
         createChat,
         deleteChat,
         updateChatTitle,
         sendMessage,
+        stopStreaming,
         clearError,
     };
 };
