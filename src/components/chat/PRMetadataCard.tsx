@@ -12,12 +12,74 @@ interface PRMetadataCardProps {
     isLoading?: boolean;
 }
 
+// Component to render a single diff line with proper styling
+const DiffLine = ({ line, index }: { line: string; index: number }) => {
+    let bgColor = 'bg-gray-50';
+    let textColor = 'text-gray-700';
+    let prefix = ' ';
+
+    if (line.startsWith('+') && !line.startsWith('+++')) {
+        bgColor = 'bg-green-50';
+        textColor = 'text-green-800';
+        prefix = '+';
+    } else if (line.startsWith('-') && !line.startsWith('---')) {
+        bgColor = 'bg-red-50';
+        textColor = 'text-red-800';
+        prefix = '-';
+    } else if (line.startsWith('@@')) {
+        bgColor = 'bg-blue-50';
+        textColor = 'text-blue-700';
+        prefix = '@';
+    }
+
+    return (
+        <div className={`${bgColor} ${textColor} px-2 font-mono text-[11px] leading-5 whitespace-pre overflow-x-auto`}>
+            <span className="select-none text-gray-400 mr-2 inline-block w-4">{prefix}</span>
+            {line.substring(1) || line}
+        </div>
+    );
+};
+
+// Component to render file diff
+const FileDiff = ({ patch }: { patch: string }) => {
+    const lines = patch.split('\n').slice(0, 50); // Limit to 50 lines
+    const hasMore = patch.split('\n').length > 50;
+
+    return (
+        <div className="border border-gray-200 rounded overflow-hidden mt-2">
+            <div className="max-h-64 overflow-y-auto">
+                {lines.map((line, i) => (
+                    <DiffLine key={i} line={line} index={i} />
+                ))}
+            </div>
+            {hasMore && (
+                <div className="bg-gray-100 text-center py-1 text-xs text-gray-500">
+                    ... more lines not shown
+                </div>
+            )}
+        </div>
+    );
+};
+
 export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
                                                                   metadata,
                                                                   isLoading
                                                               }) => {
     const [showCommits, setShowCommits] = useState(false);
     const [showFiles, setShowFiles] = useState(false);
+    const [expandedFiles, setExpandedFiles] = useState<Set<number>>(new Set());
+
+    const toggleFileExpand = (index: number) => {
+        setExpandedFiles(prev => {
+            const next = new Set(prev);
+            if (next.has(index)) {
+                next.delete(index);
+            } else {
+                next.add(index);
+            }
+            return next;
+        });
+    };
 
     const isClosed = metadata.pr_state === 'closed' || metadata.pr_merged;
 
@@ -152,7 +214,7 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
                 </div>
             )}
 
-            {/* Files Section */}
+            {/* Files Section with Diffs */}
             {metadata.files && metadata.files.length > 0 && (
                 <div className="border-t border-gray-100">
                     <button
@@ -166,22 +228,38 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
                         {showFiles ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
                     {showFiles && (
-                        <div className="px-4 pb-3 space-y-1.5">
+                        <div className="px-4 pb-3 space-y-3">
                             {metadata.files.map((file, i) => (
-                                <div key={i} className="flex items-center gap-2 text-xs">
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                        file.status === 'added' ? 'bg-green-100 text-green-700' :
-                                            file.status === 'removed' ? 'bg-red-100 text-red-700' :
-                                                file.status === 'renamed' ? 'bg-blue-100 text-blue-700' :
-                                                    'bg-yellow-100 text-yellow-700'
-                                    }`}>
-                                        {file.status}
-                                    </span>
-                                    <span className="text-gray-700 font-mono text-[11px] truncate flex-1">
-                                        {file.filename}
-                                    </span>
-                                    <span className="text-green-600">+{file.additions}</span>
-                                    <span className="text-red-600">-{file.deletions}</span>
+                                <div key={i} className="border border-gray-100 rounded-lg overflow-hidden">
+                                    {/* File header */}
+                                    <button
+                                        onClick={() => file.patch && toggleFileExpand(i)}
+                                        className={`w-full flex items-center gap-2 text-xs p-2 bg-gray-50 ${file.patch ? 'hover:bg-gray-100 cursor-pointer' : 'cursor-default'}`}
+                                    >
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                            file.status === 'added' ? 'bg-green-100 text-green-700' :
+                                                file.status === 'removed' ? 'bg-red-100 text-red-700' :
+                                                    file.status === 'renamed' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-yellow-100 text-yellow-700'
+                                        }`}>
+                                            {file.status}
+                                        </span>
+                                        <span className="text-gray-700 font-mono text-[11px] truncate flex-1 text-left">
+                                            {file.filename}
+                                        </span>
+                                        <span className="text-green-600 font-medium">+{file.additions}</span>
+                                        <span className="text-red-600 font-medium">-{file.deletions}</span>
+                                        {file.patch && (
+                                            expandedFiles.has(i) ?
+                                                <ChevronUp className="w-4 h-4 text-gray-400" /> :
+                                                <ChevronDown className="w-4 h-4 text-gray-400" />
+                                        )}
+                                    </button>
+
+                                    {/* File diff */}
+                                    {expandedFiles.has(i) && file.patch && (
+                                        <FileDiff patch={file.patch} />
+                                    )}
                                 </div>
                             ))}
                         </div>

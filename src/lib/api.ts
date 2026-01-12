@@ -28,6 +28,7 @@ export interface PRFile {
     status: string;
     additions: number;
     deletions: number;
+    patch?: string;  // Code diff/changes
 }
 
 export interface PRMetadata {
