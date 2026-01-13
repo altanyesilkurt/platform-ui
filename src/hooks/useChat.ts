@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Chat, Message } from '@/types/chat';
-import { chatApi, PRMetadata, StreamEvent, detectPRUrl } from '@/lib/api';
+import { chatApi, PRMetadata, CommitMetadata, StreamEvent, detectPRUrl, detectCommitUrl } from '@/lib/api';
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
@@ -20,6 +20,7 @@ export const useChat = () => {
     const [isConnected, setIsConnected] = useState(false);
     const [streamingContent, setStreamingContent] = useState<string>('');
     const [currentPRMetadata, setCurrentPRMetadata] = useState<PRMetadata | null>(null);
+    const [currentCommitMetadata, setCurrentCommitMetadata] = useState<CommitMetadata | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     const activeChat = chats.find(chat => chat.id === activeChatId) || chats[0];
@@ -62,6 +63,7 @@ export const useChat = () => {
                     content: m.content,
                     timestamp: new Date(m.created_at),
                     prMetadata: m.pr_metadata,
+                    commitMetadata: m.commit_metadata,
                 }));
 
                 setChats(prev => prev.map(chat =>
@@ -159,8 +161,11 @@ export const useChat = () => {
         setError(null);
         setStreamingContent('');
         setCurrentPRMetadata(null);
+        setCurrentCommitMetadata(null);
 
         const hasPRUrl = detectPRUrl(content);
+        const hasCommitUrl = detectCommitUrl(content);
+
         const userMessage: Message = {
             id: generateId(),
             role: 'user',
@@ -185,16 +190,24 @@ export const useChat = () => {
 
         try {
             if (isConnected && useStreaming) {
-                // Use streaming for PR analysis (better UX for longer responses)
+                // Use streaming for PR/Commit analysis (better UX for longer responses)
                 let fullContent = '';
                 let prMetadata: PRMetadata | null = null;
+                let commitMetadata: CommitMetadata | null = null;
                 let messageId = generateId();
                 let newTitle: string | null = null;
 
                 const handleEvent = (event: StreamEvent) => {
+                    // Handle PR metadata
                     if (event.pr_metadata) {
                         prMetadata = event.pr_metadata;
                         setCurrentPRMetadata(prMetadata);
+                    }
+
+                    // Handle Commit metadata
+                    if (event.commit_metadata) {
+                        commitMetadata = event.commit_metadata;
+                        setCurrentCommitMetadata(commitMetadata);
                     }
 
                     if (event.content) {
@@ -211,7 +224,8 @@ export const useChat = () => {
                             role: 'assistant',
                             content: fullContent,
                             timestamp: new Date(),
-                            prMetadata: prMetadata || undefined,  // Save PR metadata to message
+                            prMetadata: prMetadata || undefined,
+                            commitMetadata: commitMetadata || undefined,
                         };
 
                         setChats(prev =>
@@ -229,6 +243,7 @@ export const useChat = () => {
 
                         setStreamingContent('');
                         setCurrentPRMetadata(null);
+                        setCurrentCommitMetadata(null);
                         setLoading(false);
                     }
 
@@ -236,6 +251,7 @@ export const useChat = () => {
                         setError(event.error);
                         setStreamingContent('');
                         setCurrentPRMetadata(null);
+                        setCurrentCommitMetadata(null);
                         setLoading(false);
                     }
                 };
@@ -261,6 +277,7 @@ export const useChat = () => {
                     content: response.content,
                     timestamp: new Date(),
                     prMetadata: response.pr_metadata,
+                    // Note: non-streaming endpoint may need to be updated to return commit_metadata too
                 };
 
                 setChats(prev =>
@@ -279,9 +296,13 @@ export const useChat = () => {
             } else {
                 // Demo mode
                 await new Promise(resolve => setTimeout(resolve, 1500));
-                const demoContent = hasPRUrl
-                    ? `## PR Analysis Demo\n\nConnect your FastAPI backend to analyze PRs.\n\nDetected PR URL: ${hasPRUrl}`
-                    : `Demo response for: "${content}"`;
+                let demoContent = `Demo response for: "${content}"`;
+
+                if (hasPRUrl) {
+                    demoContent = `## PR Analysis Demo\n\nConnect your FastAPI backend to analyze PRs.\n\nDetected PR URL: ${hasPRUrl}`;
+                } else if (hasCommitUrl) {
+                    demoContent = `## Commit Analysis Demo\n\nConnect your FastAPI backend to analyze commits.\n\nDetected Commit URL: ${hasCommitUrl}`;
+                }
 
                 const assistantMessage: Message = {
                     id: generateId(),
@@ -321,6 +342,7 @@ export const useChat = () => {
         isConnected,
         streamingContent,
         currentPRMetadata,
+        currentCommitMetadata,
         setActiveChatId,
         createChat,
         deleteChat,

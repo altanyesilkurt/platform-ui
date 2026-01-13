@@ -1,4 +1,4 @@
-import { PRMetadata } from "@/lib/api.ts";
+import { CommitMetadata, PRMetadata } from "@/lib/api.ts";
 
 export interface Message {
     id: string;
@@ -6,6 +6,7 @@ export interface Message {
     content: string;
     timestamp: Date;
     prMetadata?: PRMetadata;
+    commitMetadata?: CommitMetadata;
 }
 
 export interface Chat {

@@ -5,7 +5,7 @@ import { TypingIndicator } from './TypingIndicator';
 import { ErrorMessage } from './ErrorMessage';
 import { EmptyState } from './EmptyState';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ApiMessage, PRMetadata } from '@/lib/api';
+import { ApiMessage, PRMetadata, CommitMetadata, detectPRUrl, detectCommitUrl } from '@/lib/api';
 
 interface ChatAreaProps {
     chatId: string;
@@ -28,6 +28,7 @@ export const ChatArea = ({
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [streamingContent, setStreamingContent] = useState('');
     const [streamingPRMetadata, setStreamingPRMetadata] = useState<PRMetadata | null>(null);
+    const [streamingCommitMetadata, setStreamingCommitMetadata] = useState<CommitMetadata | null>(null);
     const [isStreaming, setIsStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +47,15 @@ export const ChatArea = ({
     // Get the last user message for context
     const lastUserMessage = safeMessages.filter(m => m.role === 'user').pop()?.content || '';
 
+    // Check if the last message is GitHub-related
+    const isGitHubRelated = Boolean(
+        streamingPRMetadata ||
+        streamingCommitMetadata ||
+        detectPRUrl(lastUserMessage) ||
+        detectCommitUrl(lastUserMessage) ||
+        lastUserMessage.includes('github.com')
+    );
+
     const handleMessageSent = (message: ApiMessage) => {
         if (message.role === 'user') {
             const newMessages = [...messagesRef.current, message];
@@ -53,6 +63,7 @@ export const ChatArea = ({
             onMessagesChange(newMessages);
             setStreamingContent('');
             setStreamingPRMetadata(null);
+            setStreamingCommitMetadata(null);
             setIsStreaming(true);
             setError(null);
 
@@ -67,7 +78,18 @@ export const ChatArea = ({
         setStreamingPRMetadata(metadata);
     };
 
-    const handleStreamingResponse = (content: string, done: boolean, messageId?: string, prMetadata?: PRMetadata) => {
+    const handleCommitMetadataReceived = (metadata: CommitMetadata) => {
+        console.log('ChatArea received Commit metadata:', metadata);
+        setStreamingCommitMetadata(metadata);
+    };
+
+    const handleStreamingResponse = (
+        content: string,
+        done: boolean,
+        messageId?: string,
+        prMetadata?: PRMetadata,
+        commitMetadata?: CommitMetadata
+    ) => {
         if (done && messageId) {
             const assistantMessage: ApiMessage = {
                 id: messageId,
@@ -76,17 +98,22 @@ export const ChatArea = ({
                 content,
                 created_at: new Date().toISOString(),
                 pr_metadata: prMetadata || streamingPRMetadata || undefined,
+                commit_metadata: commitMetadata || streamingCommitMetadata || undefined,
             };
             const newMessages = [...messagesRef.current, assistantMessage];
             messagesRef.current = newMessages;
             onMessagesChange(newMessages);
             setStreamingContent('');
             setStreamingPRMetadata(null);
+            setStreamingCommitMetadata(null);
             setIsStreaming(false);
         } else {
             setStreamingContent(content);
             if (prMetadata) {
                 setStreamingPRMetadata(prMetadata);
+            }
+            if (commitMetadata) {
+                setStreamingCommitMetadata(commitMetadata);
             }
         }
     };
@@ -100,6 +127,7 @@ export const ChatArea = ({
         setIsStreaming(false);
         setStreamingContent('');
         setStreamingPRMetadata(null);
+        setStreamingCommitMetadata(null);
     };
 
     const clearError = () => setError(null);
@@ -142,7 +170,7 @@ export const ChatArea = ({
                             );
                         })}
 
-                        {/* Streaming message with PR metadata */}
+                        {/* Streaming message with PR/Commit metadata */}
                         {isStreaming && streamingContent && (
                             <ChatMessage
                                 message={{
@@ -152,16 +180,16 @@ export const ChatArea = ({
                                     content: streamingContent,
                                     created_at: new Date().toISOString(),
                                     pr_metadata: streamingPRMetadata || undefined,
+                                    commit_metadata: streamingCommitMetadata || undefined,
                                 }}
                                 isStreaming={true}
                                 triggerMessage={lastUserMessage}
                             />
                         )}
 
+                        {/* Typing indicator - show when streaming but no content yet */}
                         {isStreaming && !streamingContent && (
-                            <TypingIndicator
-                                isGitHub={streamingPRMetadata !== null || lastUserMessage.includes('github.com')}
-                            />
+                            <TypingIndicator isGitHub={isGitHubRelated} />
                         )}
 
                         <div ref={messagesEndRef} />
@@ -182,6 +210,7 @@ export const ChatArea = ({
                 onMessageSent={handleMessageSent}
                 onStreamingResponse={handleStreamingResponse}
                 onPRMetadataReceived={handlePRMetadataReceived}
+                onCommitMetadataReceived={handleCommitMetadataReceived}
                 onTitleGenerated={handleTitleGenerated}
                 onError={handleError}
                 useStreaming={true}

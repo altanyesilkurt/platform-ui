@@ -14,7 +14,8 @@ export interface ApiMessage {
     role: 'user' | 'assistant';
     content: string;
     created_at: string;
-    pr_metadata?: PRMetadata;  // PR metadata for GitHub assistant
+    pr_metadata?: PRMetadata;
+    commit_metadata?: CommitMetadata;
 }
 
 export interface PRCommit {
@@ -28,7 +29,7 @@ export interface PRFile {
     status: string;
     additions: number;
     deletions: number;
-    patch?: string;  // Code diff/changes
+    patch?: string;
 }
 
 export interface PRMetadata {
@@ -46,29 +47,20 @@ export interface PRMetadata {
     files?: PRFile[];
 }
 
-export interface PRAnalysis {
-    summary?: string;
-    response?: string;
-}
-
-export interface ChatResponse {
-    id: string;
-    role: string;
-    content: string;
-    new_title?: string;
-    pr_metadata?: PRMetadata;
-}
-
-export interface PRAnalysisResponse {
-    pr_url: string;
-    pr_title: string;
-    author: string;
-    stats: {
-        files_changed: number;
-        additions: number;
-        deletions: number;
-    };
-    analysis: PRAnalysis;
+export interface CommitMetadata {
+    type: 'commit';
+    commit_url: string;
+    commit_sha: string;
+    commit_sha_full?: string;
+    commit_message: string;  // Full message including description
+    commit_author: string;
+    commit_author_email?: string;
+    commit_date: string;
+    files_changed: number;
+    additions: number;
+    deletions: number;
+    total_changes?: number;
+    files?: PRFile[];
 }
 
 export interface StreamEvent {
@@ -77,6 +69,7 @@ export interface StreamEvent {
     id?: string;
     new_title?: string;
     pr_metadata?: PRMetadata;
+    commit_metadata?: CommitMetadata;
     error?: string;
 }
 
@@ -121,17 +114,7 @@ export const chatApi = {
         return response.json();
     },
 
-    async sendMessage(chatId: string, content: string): Promise<ChatResponse> {
-        const response = await fetch(`${API_BASE_URL}/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, message: content }),
-        });
-        if (!response.ok) throw new Error('Failed to send message');
-        return response.json();
-    },
-
-    // Streaming message endpoint - FIXED VERSION
+    // Streaming message endpoint
     sendMessageStream(
         chatId: string,
         content: string,
@@ -161,18 +144,16 @@ export const chatApi = {
 
                     buffer += decoder.decode(value, { stream: true });
 
-                    // Process complete lines
                     const lines = buffer.split('\n');
-                    buffer = lines.pop() || ''; // Keep incomplete line in buffer
+                    buffer = lines.pop() || '';
 
                     for (const line of lines) {
                         const trimmedLine = line.trim();
                         if (trimmedLine.startsWith('data: ')) {
-                            const jsonStr = trimmedLine.slice(6); // Remove 'data: ' prefix
+                            const jsonStr = trimmedLine.slice(6);
                             if (jsonStr) {
                                 try {
                                     const data = JSON.parse(jsonStr) as StreamEvent;
-                                    console.log('Parsed stream event:', data); // Debug
                                     onEvent(data);
                                 } catch (e) {
                                     console.warn('Failed to parse SSE data:', jsonStr, e);
@@ -182,7 +163,6 @@ export const chatApi = {
                     }
                 }
 
-                // Process any remaining data in buffer
                 if (buffer.trim().startsWith('data: ')) {
                     const jsonStr = buffer.trim().slice(6);
                     if (jsonStr) {
@@ -204,18 +184,22 @@ export const chatApi = {
         return controller;
     },
 
-    // Direct PR analysis endpoint
-    async analyzePR(
-        prUrl: string,
-        analysisType: 'full' | 'summary' | 'risks' | 'review' = 'full'
-    ): Promise<PRAnalysisResponse> {
+    // Direct commit analysis endpoint
+    async analyzeCommit(commitUrl: string): Promise<{
+        commit_url: string;
+        commit_sha: string;
+        commit_message: string;
+        author: string;
+        stats: { files_changed: number; additions: number; deletions: number };
+        analysis: { response: string };
+    }> {
         const response = await fetch(
-            `${API_BASE_URL}/analyze-pr?pr_url=${encodeURIComponent(prUrl)}&analysis_type=${analysisType}`,
+            `${API_BASE_URL}/analyze-commit?commit_url=${encodeURIComponent(commitUrl)}`,
             { method: 'POST' }
         );
         if (!response.ok) {
             const error = await response.json().catch(() => ({ detail: 'Analysis failed' }));
-            throw new Error(error.detail || 'Failed to analyze PR');
+            throw new Error(error.detail || 'Failed to analyze commit');
         }
         return response.json();
     },
@@ -227,7 +211,7 @@ export const chatApi = {
         return response.json();
     },
 
-    // Submit PR review (Comment, Approve, Request Changes)
+    // Submit PR review
     async submitPRReview(
         prUrl: string,
         reviewType: 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES',
@@ -244,22 +228,16 @@ export const chatApi = {
         }
         return response.json();
     },
-
-    // Add a comment to PR
-    async addPRComment(prUrl: string, body: string): Promise<{ success: boolean; message: string }> {
-        const response = await fetch(`${API_BASE_URL}/pr/comment?pr_url=${encodeURIComponent(prUrl)}&body=${encodeURIComponent(body)}`, {
-            method: 'POST',
-        });
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ detail: 'Failed to add comment' }));
-            throw new Error(error.detail || 'Failed to add comment');
-        }
-        return response.json();
-    },
 };
 
 // Helper to detect if message contains a PR URL
 export const detectPRUrl = (message: string): string | null => {
     const match = message.match(/https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/);
+    return match ? match[0] : null;
+};
+
+// Helper to detect if message contains a Commit URL
+export const detectCommitUrl = (message: string): string | null => {
+    const match = message.match(/https:\/\/github\.com\/[^/]+\/[^/]+\/commit\/[a-fA-F0-9]+/);
     return match ? match[0] : null;
 };

@@ -1,11 +1,24 @@
 // components/PRMetadataCard.tsx
 
 import React, { useState } from 'react';
-import { PRMetadata, chatApi } from '@/lib/api';
+import { chatApi, PRMetadata } from '@/lib/api';
 import {
-    GitPullRequest, GitMerge, GitCommit, FileCode,
-    Plus, Minus, XCircle, ChevronDown, ChevronUp, User,
-    MessageSquare, CheckCircle, AlertCircle, X, Loader2, Send
+    AlertCircle,
+    CheckCircle,
+    ChevronDown,
+    ChevronUp,
+    FileCode,
+    GitCommit,
+    GitMerge,
+    GitPullRequest,
+    Loader2,
+    MessageSquare,
+    Minus,
+    Plus,
+    Send,
+    User,
+    X,
+    XCircle
 } from 'lucide-react';
 
 interface PRMetadataCardProps {
@@ -16,7 +29,7 @@ interface PRMetadataCardProps {
 type ReviewType = 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES';
 
 // Diff Line Component
-const DiffLine = ({ line }: { line: string }) => {
+const DiffLine = ({line}: { line: string }) => {
     let bgColor = 'bg-gray-50';
     let textColor = 'text-gray-700';
     let prefix = ' ';
@@ -44,7 +57,7 @@ const DiffLine = ({ line }: { line: string }) => {
 };
 
 // File Diff Component
-const FileDiff = ({ patch }: { patch: string }) => {
+const FileDiff = ({patch}: { patch: string }) => {
     const lines = patch.split('\n').slice(0, 50);
     const hasMore = patch.split('\n').length > 50;
 
@@ -52,7 +65,7 @@ const FileDiff = ({ patch }: { patch: string }) => {
         <div className="border border-gray-200 rounded overflow-hidden mt-2">
             <div className="max-h-64 overflow-y-auto">
                 {lines.map((line, i) => (
-                    <DiffLine key={i} line={line} />
+                    <DiffLine key={i} line={line}/>
                 ))}
             </div>
             {hasMore && (
@@ -137,7 +150,7 @@ const ReviewModal = ({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/50" onClick={onClose}/>
 
             {/* Modal */}
             <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden">
@@ -145,7 +158,7 @@ const ReviewModal = ({
                 <div className="flex items-center justify-between px-4 py-3 border-b">
                     <h3 className="text-lg font-semibold">Submit Review</h3>
                     <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
-                        <X className="w-5 h-5" />
+                        <X className="w-5 h-5"/>
                     </button>
                 </div>
 
@@ -185,7 +198,7 @@ const ReviewModal = ({
                                 />
                                 <div className="flex-1">
                                     <div className={`flex items-center gap-2 font-medium ${option.color}`}>
-                                        <option.icon className="w-4 h-4" />
+                                        <option.icon className="w-4 h-4"/>
                                         {option.label}
                                     </div>
                                     <p className="text-xs text-gray-600 mt-0.5">{option.description}</p>
@@ -222,12 +235,12 @@ const ReviewModal = ({
                     >
                         {isSubmitting ? (
                             <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <Loader2 className="w-4 h-4 animate-spin"/>
                                 Submitting...
                             </>
                         ) : (
                             <>
-                                <Send className="w-4 h-4" />
+                                <Send className="w-4 h-4"/>
                                 Submit review
                             </>
                         )}
@@ -239,12 +252,13 @@ const ReviewModal = ({
 };
 
 // Success Toast Component
-const SuccessToast = ({ message, onClose }: { message: string; onClose: () => void }) => (
-    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg animate-slide-up">
-        <CheckCircle className="w-5 h-5" />
+const SuccessToast = ({message, onClose}: { message: string; onClose: () => void }) => (
+    <div
+        className="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg shadow-lg animate-slide-up">
+        <CheckCircle className="w-5 h-5"/>
         <span className="text-sm font-medium">{message}</span>
         <button onClick={onClose} className="ml-2 hover:bg-green-700 p-1 rounded">
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4"/>
         </button>
     </div>
 );
@@ -279,12 +293,13 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
     // Closed/Merged PR
     if (isClosed) {
         return (
-            <div className={`border rounded-lg p-4 mb-3 ${metadata.pr_merged ? 'bg-purple-50 border-purple-200' : 'bg-red-50 border-red-200'}`}>
+            <div
+                className={`border rounded-lg p-4 mb-3 ${metadata.pr_merged ? 'bg-purple-50 border-purple-200' : 'bg-red-50 border-red-200'}`}>
                 <div className="flex items-start gap-3">
                     {metadata.pr_merged ? (
-                        <GitMerge className="w-5 h-5 text-purple-600 mt-0.5" />
+                        <GitMerge className="w-5 h-5 text-purple-600 mt-0.5"/>
                     ) : (
-                        <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                        <XCircle className="w-5 h-5 text-red-600 mt-0.5"/>
                     )}
                     <div className="flex-1 min-w-0">
                         <a href={metadata.pr_url} target="_blank" rel="noopener noreferrer"
@@ -293,14 +308,15 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
                         </a>
                         {metadata.pr_author && (
                             <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                <User className="w-3 h-3" />{metadata.pr_author}
+                                <User className="w-3 h-3"/>{metadata.pr_author}
                             </p>
                         )}
                         <p className="text-xs text-gray-500 mt-1">
                             {metadata.files_changed} files • +{metadata.additions} -{metadata.deletions}
                         </p>
                     </div>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${metadata.pr_merged ? 'bg-purple-100 text-purple-700' : 'bg-red-100 text-red-700'}`}>
+                    <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${metadata.pr_merged ? 'bg-purple-100 text-purple-700' : 'bg-red-100 text-red-700'}`}>
                         {metadata.pr_merged ? 'Merged' : 'Closed'}
                     </span>
                 </div>
@@ -315,7 +331,7 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
                 {/* Header */}
                 <div className="bg-green-50 border-b border-green-100 p-4">
                     <div className="flex items-start gap-3">
-                        <GitPullRequest className="w-5 h-5 text-green-600 mt-0.5" />
+                        <GitPullRequest className="w-5 h-5 text-green-600 mt-0.5"/>
                         <div className="flex-1 min-w-0">
                             <a href={metadata.pr_url} target="_blank" rel="noopener noreferrer"
                                className="text-sm font-semibold text-gray-800 hover:text-green-700 hover:underline block">
@@ -323,7 +339,7 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
                             </a>
                             {metadata.pr_author && (
                                 <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                    <User className="w-3 h-3" />{metadata.pr_author}
+                                    <User className="w-3 h-3"/>{metadata.pr_author}
                                 </p>
                             )}
                         </div>
@@ -342,17 +358,17 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
                 {/* Stats */}
                 <div className="px-4 py-3 bg-gray-50 flex items-center gap-4 text-xs">
                     <span className="flex items-center gap-1.5 text-gray-600 font-medium">
-                        <FileCode className="w-4 h-4" />{metadata.files_changed} files
+                        <FileCode className="w-4 h-4"/>{metadata.files_changed} files
                     </span>
                     <span className="flex items-center gap-1 text-green-600 font-medium">
-                        <Plus className="w-3.5 h-3.5" />{metadata.additions}
+                        <Plus className="w-3.5 h-3.5"/>{metadata.additions}
                     </span>
                     <span className="flex items-center gap-1 text-red-600 font-medium">
-                        <Minus className="w-3.5 h-3.5" />{metadata.deletions}
+                        <Minus className="w-3.5 h-3.5"/>{metadata.deletions}
                     </span>
                     {metadata.commits?.length > 0 && (
                         <span className="flex items-center gap-1.5 text-gray-600 font-medium">
-                            <GitCommit className="w-4 h-4" />{metadata.commits.length} commits
+                            <GitCommit className="w-4 h-4"/>{metadata.commits.length} commits
                         </span>
                     )}
                     {isLoading && <span className="ml-auto text-blue-500 animate-pulse font-medium">Analyzing...</span>}
@@ -363,14 +379,16 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
                     <div className="border-t border-gray-100">
                         <button onClick={() => setShowCommits(!showCommits)}
                                 className="w-full px-4 py-2 flex items-center justify-between text-xs font-medium text-gray-600 hover:bg-gray-50">
-                            <span className="flex items-center gap-2"><GitCommit className="w-3.5 h-3.5" />Commits ({metadata.commits.length})</span>
-                            {showCommits ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            <span className="flex items-center gap-2"><GitCommit
+                                className="w-3.5 h-3.5"/>Commits ({metadata.commits.length})</span>
+                            {showCommits ? <ChevronUp className="w-4 h-4"/> : <ChevronDown className="w-4 h-4"/>}
                         </button>
                         {showCommits && (
                             <div className="px-4 pb-3 space-y-2">
                                 {metadata.commits.map((commit, i) => (
                                     <div key={i} className="flex items-start gap-2 text-xs">
-                                        <code className="text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded font-mono">{commit.sha}</code>
+                                        <code
+                                            className="text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded font-mono">{commit.sha}</code>
                                         <span className="text-gray-700 flex-1">{commit.message}</span>
                                     </div>
                                 ))}
@@ -384,8 +402,9 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
                     <div className="border-t border-gray-100">
                         <button onClick={() => setShowFiles(!showFiles)}
                                 className="w-full px-4 py-2 flex items-center justify-between text-xs font-medium text-gray-600 hover:bg-gray-50">
-                            <span className="flex items-center gap-2"><FileCode className="w-3.5 h-3.5" />Files Changed ({metadata.files.length})</span>
-                            {showFiles ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            <span className="flex items-center gap-2"><FileCode
+                                className="w-3.5 h-3.5"/>Files Changed ({metadata.files.length})</span>
+                            {showFiles ? <ChevronUp className="w-4 h-4"/> : <ChevronDown className="w-4 h-4"/>}
                         </button>
                         {showFiles && (
                             <div className="px-4 pb-3 space-y-3">
@@ -398,12 +417,15 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
                                                     file.status === 'removed' ? 'bg-red-100 text-red-700' :
                                                         file.status === 'renamed' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
                                             }`}>{file.status}</span>
-                                            <span className="text-gray-700 font-mono text-[11px] truncate flex-1 text-left">{file.filename}</span>
+                                            <span
+                                                className="text-gray-700 font-mono text-[11px] truncate flex-1 text-left">{file.filename}</span>
                                             <span className="text-green-600 font-medium">+{file.additions}</span>
                                             <span className="text-red-600 font-medium">-{file.deletions}</span>
-                                            {file.patch && (expandedFiles.has(i) ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />)}
+                                            {file.patch && (expandedFiles.has(i) ?
+                                                <ChevronUp className="w-4 h-4 text-gray-400"/> :
+                                                <ChevronDown className="w-4 h-4 text-gray-400"/>)}
                                         </button>
-                                        {expandedFiles.has(i) && file.patch && <FileDiff patch={file.patch} />}
+                                        {expandedFiles.has(i) && file.patch && <FileDiff patch={file.patch}/>}
                                     </div>
                                 ))}
                             </div>
@@ -418,7 +440,7 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
                             onClick={() => setShowReviewModal(true)}
                             className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
                         >
-                            <MessageSquare className="w-3.5 h-3.5" />
+                            <MessageSquare className="w-3.5 h-3.5"/>
                             Review PR
                         </button>
                         <a
@@ -427,7 +449,7 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                         >
-                            <GitPullRequest className="w-3.5 h-3.5" />
+                            <GitPullRequest className="w-3.5 h-3.5"/>
                             View on GitHub
                         </a>
                     </div>
@@ -444,7 +466,7 @@ export const PRMetadataCard: React.FC<PRMetadataCardProps> = ({
 
             {/* Success Toast */}
             {successMessage && (
-                <SuccessToast message={successMessage} onClose={() => setSuccessMessage(null)} />
+                <SuccessToast message={successMessage} onClose={() => setSuccessMessage(null)}/>
             )}
         </>
     );
