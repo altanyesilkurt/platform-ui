@@ -226,6 +226,36 @@ export const chatApi = {
         if (!response.ok) throw new Error('Health check failed');
         return response.json();
     },
+
+    // Submit PR review (Comment, Approve, Request Changes)
+    async submitPRReview(
+        prUrl: string,
+        reviewType: 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES',
+        body: string = ''
+    ): Promise<{ success: boolean; message: string }> {
+        const response = await fetch(`${API_BASE_URL}/pr/review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pr_url: prUrl, review_type: reviewType, body }),
+        });
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: 'Failed to submit review' }));
+            throw new Error(error.detail || 'Failed to submit review');
+        }
+        return response.json();
+    },
+
+    // Add a comment to PR
+    async addPRComment(prUrl: string, body: string): Promise<{ success: boolean; message: string }> {
+        const response = await fetch(`${API_BASE_URL}/pr/comment?pr_url=${encodeURIComponent(prUrl)}&body=${encodeURIComponent(body)}`, {
+            method: 'POST',
+        });
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: 'Failed to add comment' }));
+            throw new Error(error.detail || 'Failed to add comment');
+        }
+        return response.json();
+    },
 };
 
 // Helper to detect if message contains a PR URL
