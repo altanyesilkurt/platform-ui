@@ -1,73 +1,172 @@
-# React + TypeScript + Vite
+# 🚀 Platform UI - AI-Powered GitHub PR & Change Intelligence Assistant
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An intelligent chat interface for analyzing GitHub Pull Requests and Commits with AI-powered insights. Get instant code reviews, change summaries, and actionable feedback through a modern conversational UI.
 
-Currently, two official plugins are available:
+![Platform UI Screenshot](./docs/screenshot.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Features
 
-## React Compiler
+- **🔍 PR Analysis** - Paste any GitHub PR URL to get detailed analysis including:
+  - Change summary and impact assessment
+  - Files modified with additions/deletions breakdown
+  - Commit history review
+  - Code quality insights
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **📝 Commit Analysis** - Analyze individual commits for:
+  - Change breakdown and statistics
+  - Author and timestamp information
+  - File-level diff analysis
 
-## Expanding the ESLint configuration
+- **💬 Conversational Interface** - Natural chat experience with:
+  - Real-time streaming responses
+  - Auto-generated chat titles
+  - Persistent chat history
+  - Markdown rendering with syntax highlighting
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **🎨 Modern UI** - Clean, responsive design with:
+  - GitHub-style metadata cards
+  - Smooth animations and transitions
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🛠️ Tech Stack
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Frontend
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **Tailwind CSS** for styling
+- **shadcn/ui** for UI components
+- **Lucide React** for icons
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Backend
+- **FastAPI** (Python)
+- **Server-Sent Events (SSE)** for real-time streaming
+- **GitHub API** integration
+
+## 📦 Installation
+
+### Prerequisites
+- Node.js 18+ 
+- pnpm (recommended) or npm
+- Python 3.9+ (for backend)
+
+### Frontend Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/altanyesilkurt/platform-ui.git
+cd platform-ui
+
+# Install dependencies
+npm install
+
+# Copy environment variables
+cp .env.example .env
+
+# Start development server
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create a `.env` file in the root directory:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+# Backend API URL
+VITE_API_BASE_URL=http://localhost:8000
 ```
+
+## 🚀 Usage
+
+### Analyzing a Pull Request
+
+Simply paste a GitHub PR URL into the chat:
+
+```
+review https://github.com/owner/repo/pull/123
+```
+
+The assistant will fetch PR metadata and provide:
+- Summary of changes
+- Key modifications
+- Code snippets with syntax highlighting
+- Potential issues or suggestions
+
+### Analyzing a Commit
+
+Paste a GitHub commit URL:
+
+```
+analyze https://github.com/owner/repo/commit/abc123
+```
+
+## 📁 Project Structure
+
+```
+platform-ui/
+├── src/
+│   ├── components/
+│   │   ├── chat/
+│   │   │   ├── ChatArea.tsx        # Main chat container
+│   │   │   ├── ChatInput.tsx       # Message input component
+│   │   │   ├── ChatLayout.tsx      # Layout with sidebar
+│   │   │   ├── ChatMessage.tsx     # Message bubble component
+│   │   │   ├── ChatSidebar.tsx     # Chat history sidebar
+│   │   │   ├── PRMetadataCard.tsx  # PR info display
+│   │   │   ├── CommitMetadataCard.tsx
+│   │   │   └── MarkdownRenderer.tsx
+│   │   └── ui/                     # shadcn/ui components
+│   ├── hooks/
+│   │   └── useChat.ts              # Chat state management
+│   ├── lib/
+│   │   └── api.ts                  # API client & types
+│   ├── types/
+│   │   └── chat.ts                 # TypeScript interfaces
+│   └── App.tsx
+├── public/
+├── .env.example
+├── package.json
+├── tailwind.config.js
+├── tsconfig.json
+└── vite.config.ts
+```
+
+## 🔌 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/chats` | List all chats |
+| `POST` | `/chats` | Create new chat |
+| `PUT` | `/chats/{id}` | Update chat title |
+| `DELETE` | `/chats/{id}` | Delete a chat |
+| `GET` | `/chats/{id}/messages` | Get chat messages |
+| `POST` | `/chat/stream` | Send message (SSE streaming) |
+| `POST` | `/analyze-commit` | Direct commit analysis |
+| `POST` | `/pr/review` | Submit PR review |
+| `GET` | `/health` | Health check |
+
+## 🎯 Roadmap
+
+- [ ] Multi-repository support
+- [ ] Code suggestion generation
+- [ ] Integration with CI/CD pipelines
+- [ ] Team collaboration features
+- [ ] Custom review templates
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 👤 Author
+
+**Altan Yesilkurt**
+
+- GitHub: [@altanyesilkurt](https://github.com/altanyesilkurt)
